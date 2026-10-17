@@ -1,0 +1,29 @@
+[project]
+name = "pulse"
+version = "1.0.0"
+description = "Uptime monitoring with public status pages"
+requires-python = ">=3.14"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+ignore = ["E501", "RUF012"]  # line length is left to the formatter
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# One event loop for the whole run: the app's connection pool lives as long as the loop.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "--strict-markers"
+filterwarnings = ["error::RuntimeWarning"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/worker/__main__.py", "app/seed.py"]
