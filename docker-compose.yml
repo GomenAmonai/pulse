@@ -1,0 +1,63 @@
+# Full local stack: docker compose up --build
+# API docs: http://localhost:8000/api/docs   Public status page: http://localhost:8000/api/status/acme
+x-env: &env
+  DATABASE_URL: postgresql+asyncpg://pulse:pulse@db:5432/pulse
+  REDIS_URL: redis://redis:6379/0
+  SECRET_KEY: local-compose-secret-key-not-for-production
+  CORS_ORIGINS: '["http://localhost:5173"]'
+
+x-backend: &backend
+  build: ./backend
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: pulse
+      POSTGRES_DB: pulse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse"]
+      interval: 2s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 20
+
+  api:
+    <<: *backend
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *env
+      ROLE: api
+      SEED_DEMO: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      start_period: 15s
+
+  # Migrations run in the api container, so the worker starts once the api is healthy.
+  worker:
+    <<: *backend
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      <<: *env
+      ROLE: worker
+
+volumes:
+  pgdata:
